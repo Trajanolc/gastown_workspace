@@ -1,0 +1,102 @@
+description = """
+Fast-track convoy for confirmed bugs with clear, narrow scope.
+
+Use when:
+- Bug is confirmed and reproducible
+- Scope is limited (ideally < 1 file or subsystem)
+- No architectural redesign required
+
+Escalation rule: If scope grows during implementation, Polecat MUST
+notify Mayor immediately. Mayor will pause and escalate to convoy-feature.
+
+## Notification Points
+
+| Event              | Mayor receives                        |
+|--------------------|---------------------------------------|
+| validation fails   | mail with Test Runner evidence        |
+| scope grows        | mail from Polecat requesting escalation |
+"""
+formula = "convoy-hotfix"
+version = 1
+
+
+#
+# VARIABLES
+#
+
+[vars.objective]
+description = "What bug needs to be fixed"
+required = true
+
+[vars.scope]
+description = "Affected file(s) or subsystem (keep it narrow)"
+required = true
+
+[vars.incident_ref]
+description = "Optional incident or issue reference"
+required = false
+default = ""
+
+[vars.crew_member]
+description = "Mail address of the crew member coordinating this convoy (e.g., contract_checker/crew/gov)"
+required = true
+
+
+#
+# STEPS
+#
+
+[[steps]]
+id = "implementation"
+title = "Polecat implements the fix"
+description = """
+Implement the bug fix within the declared scope.
+
+Constraints:
+- Do NOT redesign architecture
+- Do NOT expand scope without notifying Mayor
+- If scope grows → notify Mayor immediately via mail for escalation to convoy-feature
+
+```bash
+gt mail send {{crew_member}}/ -s "ESCALATION: scope grew on {{objective}}" -m "<what changed and why>"
+```
+
+Outputs:
+- Code fix committed to branch
+- Brief explanation: root cause + what was changed
+"""
+
+[[steps]]
+id = "validation"
+title = "Test Runner validates the fix"
+needs = ["implementation"]
+description = """
+Execute tests relevant to the fix. Provide evidence only — no interpretation, no self-fixing.
+
+Outputs:
+- PASS/FAIL report
+- Logs and stack traces
+- Reproduction steps if failed
+
+On failure:
+- Notify Mayor with full evidence
+- Do NOT attempt to fix
+
+```bash
+gt mail send {{crew_member}}/ -s "VALIDATION FAILED: {{objective}}" -m "<paste logs here>"
+```
+"""
+
+[[steps]]
+id = "continuity"
+title = "Librarian records the fix"
+needs = ["validation"]
+description = """
+Preserve institutional memory for this fix.
+
+Outputs:
+- What broke and why (root cause)
+- What was changed and where (file paths + commit ref)
+- How to verify the fix is working
+- Any known edge cases or follow-up items
+"""

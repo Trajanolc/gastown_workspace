@@ -1,0 +1,10 @@
+prefix: hq
+issue-prefix: hq
+sync.mode: dolt-native
+dolt.server: true
+dolt.server-host: 127.0.0.1
+dolt.server-port: 3307
+dolt.server-user: root
+dolt.database: hq
+
+routing.mode: "explicit"

@@ -1,0 +1,260 @@
+description = """
+Full governance convoy for structural changes that involve LLM or agent prompts.
+Use this formula when the convoy DOES involve prompt design or AI agent behavior.
+For convoys without LLM involvement, use convoy-governance instead.
+
+Use when:
+- Cross-rig or cross-system changes
+- Structural or architectural redesign
+- Changes to LLM prompts embedded in code
+- New or modified agent behavioral contracts
+- Structured output specifications for AI components
+
+Profile selection: any agent proposes, Mayor confirms. Mayor asks
+'does this convoy involve LLM or agent prompts?' at creation time.
+Answer: yes → use this formula.
+
+## Step DAG
+
+  qa-spec ────────────────────────────────────┐
+                                               ├──→ design-critique → implementation → validation ─┐
+  arch ──→ prompt-design ─────────────────────┘                                                    ├──→ continuity
+                                                                          devops-stability ──────────┘
+
+qa-spec and architecture-framing run in parallel.
+prompt-design runs after architecture-framing completes.
+design-critique waits for both qa-spec and prompt-design.
+validation and devops-stability run in parallel.
+continuity opens only when both validation and devops-stability complete.
+
+## Notification Points
+
+| Event                        | Mayor receives                              |
+|------------------------------|---------------------------------------------|
+| arch complete                | (prompt-design auto-starts)                 |
+| qa-spec + prompt-design done | mail: "ready for design-critique"           |
+| design-critique: critical    | mail from Critic with blocking findings     |
+| validation fails             | mail from Test Runner with evidence         |
+| devops-stability fails       | mail from DevOps with reproducibility report|
+| scope grows                  | mail from Polecat requesting escalation     |
+"""
+formula = "convoy-governance-ai"
+version = 1
+
+
+#
+# VARIABLES
+#
+
+[vars.objective]
+description = "High-level objective of the convoy"
+required = true
+
+[vars.scope]
+description = "Scope or subsystem affected"
+required = true
+
+[vars.impact_areas]
+description = "Comma-separated list of affected systems, rigs, or teams"
+required = true
+
+[vars.crew_member]
+description = "Mail address of the crew member coordinating this convoy (e.g., contract_checker/crew/gov)"
+required = true
+
+
+#
+# STEPS
+#
+
+[[steps]]
+id = "qa-specification"
+title = "QA Spec defines DoR and DoD"
+parallel = true
+description = """
+QA defines validation criteria BEFORE implementation begins.
+Runs in parallel with architecture-framing.
+
+Outputs:
+- Definition of Ready (DoR): what must be true before implementation starts
+- Definition of Done (DoD): what must be true before convoy closes
+- Acceptance criteria
+- Edge cases and boundary conditions
+- Unit test sketches (not necessarily runnable, but concrete)
+- Behavioral test cases for AI components (input/output pairs, edge cases)
+
+Implementation MUST NOT begin before DoR is satisfied.
+"""
+
+[[steps]]
+id = "architecture-framing"
+title = "Architect defines guardrails and decomposition"
+parallel = true
+description = """
+Architect analyzes the convoy objective and scope, including impact across
+all listed impact areas: {{impact_areas}}.
+
+Outputs:
+- System boundaries and guardrails
+- ADR updates if required (mandatory for cross-rig changes)
+- Bead decomposition proposal
+- Risk assessment for each impact area
+- Identification of which components require prompt specifications
+
+When complete, Prompt Designer auto-starts (no need to notify Mayor).
+"""
+
+[[steps]]
+id = "prompt-design"
+title = "Prompt Designer defines production agent prompts"
+needs = ["architecture-framing"]
+description = """
+Prompt / Behavior Designer creates or updates prompts that will be embedded in code.
+Starts after architecture-framing is complete.
+
+Responsibilities:
+- Apply prompt engineering best practices
+- Define behavioral contracts for each AI component
+- Specify structured output schemas
+- Define guardrails and refusals
+- Version all prompt definitions
+
+Outputs:
+- Production-ready prompt specifications (not drafts)
+- Versioned prompt definitions with rationale
+- Behavioral contracts: what the agent will and will not do
+- Structured output schemas if applicable
+
+CRITICAL: Polecats MUST NOT invent or improvise prompts during implementation.
+All prompts must come from this step.
+
+When complete, notify Mayor:
+```bash
+gt mail send {{crew_member}}/ -s "qa+prompts ready for design-critique: {{objective}}" -m "<summary>"
+```
+"""
+
+[[steps]]
+id = "design-critique"
+title = "Critic reviews QA Spec, Architecture, and Prompt Specs before implementation"
+needs = ["qa-specification", "prompt-design"]
+description = """
+Critic reviews QA Spec, Architecture, and Prompt Designer outputs.
+This gate runs BEFORE any implementation begins.
+
+Evaluates:
+- Architectural coherence across all impact areas
+- Coupling and complexity risks
+- Guardrail violations
+- API stability and contract changes
+- QA Spec coverage gaps
+- Prompt specification completeness and safety
+- Behavioral contract correctness
+
+Rules:
+- Critic does NOT modify any documents or code
+- Reports directly to Mayor
+
+```bash
+gt mail send {{crew_member}}/ -s "design-critique: {{objective}}" -m "<findings and verdict>"
+```
+
+Verdict:
+- CLEAR → convoy proceeds to implementation
+- BLOCKED (critical findings) → convoy paused, Mayor routes back to appropriate step
+"""
+
+[[steps]]
+id = "implementation"
+title = "Polecats implement within constraints"
+needs = ["design-critique"]
+description = """
+Implement according to established constraints.
+
+Must follow:
+- Architect guardrails and ADRs
+- QA Spec DoR (must be satisfied before starting)
+- Prompt Designer specifications EXACTLY (no improvisation)
+- No architectural redesign
+- No prompt invention — if a prompt is missing, STOP and notify Mayor
+
+```bash
+gt mail send {{crew_member}}/ -s "MISSING PROMPT SPEC: {{objective}}" -m "<which component, what's needed>"
+```
+
+If scope grows → escalate immediately:
+```bash
+gt mail send {{crew_member}}/ -s "ESCALATION: scope grew on {{objective}}" -m "<what and why>"
+```
+"""
+
+[[steps]]
+id = "validation"
+title = "Test Runner validates with objective evidence"
+needs = ["implementation"]
+parallel = true
+description = """
+Execute QA-defined tests including behavioral tests for AI components.
+Runs in parallel with devops-stability.
+Evidence only — no interpretation, no fixes.
+
+Outputs:
+- PASS/FAIL report
+- Logs and traces
+- Behavioral test results (input/output pairs vs expected)
+- Reproduction steps if failed
+
+On failure:
+- Notify Mayor with full evidence
+- Do NOT attempt to fix
+
+```bash
+gt mail send {{crew_member}}/ -s "VALIDATION FAILED: {{objective}}" -m "<paste evidence>"
+```
+"""
+
+[[steps]]
+id = "devops-stability"
+title = "DevOps ensures runtime reproducibility"
+needs = ["implementation"]
+parallel = true
+description = """
+Validate runtime stability and reproducibility. Runs in parallel with validation.
+
+Responsibilities:
+- Docker/runtime environment verification
+- CI-lite checks: lint, typecheck, tests
+- Environment reproducibility across machines
+- Early detection of runtime issues not caught by unit tests
+
+Outputs:
+- Reproducibility report (PASS/FAIL)
+- Environment snapshot (versions, configs)
+- Issues found (if any)
+
+On failure:
+- Notify Mayor with full report
+- Do NOT attempt to fix
+
+```bash
+gt mail send {{crew_member}}/ -s "DEVOPS FAILED: {{objective}}" -m "<paste report>"
+```
+"""
+
+[[steps]]
+id = "continuity"
+title = "Librarian records convoy outcomes"
+needs = ["validation", "devops-stability"]
+description = """
+Preserve institutional memory across agent lifecycles.
+
+Outputs:
+- Release notes for {{objective}}
+- Summary of completed beads and commits
+- Change intent and impact across {{impact_areas}}
+- Prompt specifications in effect (versioned references)
+- Behavioral contracts summary
+- Verification instructions for humans
+- Known limitations or follow-up items
+- Environment requirements confirmed by DevOps
+"""

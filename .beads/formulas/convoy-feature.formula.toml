@@ -1,0 +1,177 @@
+description = """
+Standard convoy for new features with localized impact.
+
+Use when:
+- Adding new functionality
+- Scope is medium (a few files or one subsystem)
+- No cross-rig structural changes
+
+Profile selection: any agent proposes, Mayor confirms before convoy starts.
+
+## Step DAG
+
+  qa-spec ─┐
+            ├──→ design-critique → implementation → validation → continuity
+  arch    ──┘
+
+qa-spec and architecture-framing run in parallel.
+design-critique opens only when both are complete.
+
+## Notification Points
+
+| Event                        | Mayor receives                              |
+|------------------------------|---------------------------------------------|
+| arch + qa-spec complete      | mail: "ready for design-critique"           |
+| design-critique: critical    | mail from Critic with blocking findings     |
+| validation fails             | mail from Test Runner with evidence         |
+| scope grows                  | mail from Polecat requesting escalation     |
+"""
+formula = "convoy-feature"
+version = 1
+
+
+#
+# VARIABLES
+#
+
+[vars.objective]
+description = "High-level objective of the feature"
+required = true
+
+[vars.scope]
+description = "Scope or subsystem affected"
+required = true
+
+[vars.feature_name]
+description = "Short name for the feature (used in release notes)"
+required = true
+
+[vars.crew_member]
+description = "Mail address of the crew member coordinating this convoy (e.g., contract_checker/crew/gov)"
+required = true
+
+
+#
+# STEPS
+#
+
+[[steps]]
+id = "qa-specification"
+title = "QA Spec defines DoR and DoD"
+parallel = true
+description = """
+QA defines validation criteria BEFORE implementation begins.
+Runs in parallel with architecture-framing.
+
+Outputs:
+- Definition of Ready (DoR): what must be true before implementation starts
+- Definition of Done (DoD): what must be true before convoy closes
+- Acceptance criteria
+- Edge cases and boundary conditions
+- Unit test sketches (not necessarily runnable, but concrete)
+
+Implementation MUST NOT begin before DoR is satisfied.
+"""
+
+[[steps]]
+id = "architecture-framing"
+title = "Architect defines guardrails and decomposition"
+parallel = true
+description = """
+Architect analyzes the convoy objective and scope.
+Runs in parallel with qa-specification.
+
+Outputs:
+- System boundaries and guardrails (what Polecats must not cross)
+- Bead decomposition proposal (how to split work)
+- ADR updates if required
+
+When complete, notify Mayor:
+```bash
+gt mail send {{crew_member}}/ -s "arch+qa ready for design-critique: {{feature_name}}" -m "<summary>"
+```
+"""
+
+[[steps]]
+id = "design-critique"
+title = "Critic reviews QA Spec and Architecture before implementation"
+needs = ["qa-specification", "architecture-framing"]
+description = """
+Critic reviews both QA Spec and Architecture outputs.
+This gate runs BEFORE any implementation begins.
+
+Evaluates:
+- Architectural coherence and guardrail completeness
+- Coupling and complexity risks
+- API stability concerns
+- QA Spec coverage gaps
+
+Rules:
+- Critic does NOT modify any documents or code
+- Reports directly to Mayor
+
+```bash
+gt mail send {{crew_member}}/ -s "design-critique: {{feature_name}}" -m "<findings and verdict>"
+```
+
+Verdict:
+- CLEAR → convoy proceeds to implementation
+- BLOCKED (critical findings) → convoy paused, Mayor routes back to architecture-framing
+"""
+
+[[steps]]
+id = "implementation"
+title = "Polecats implement within constraints"
+needs = ["design-critique"]
+description = """
+Implement the feature according to established constraints.
+
+Must follow:
+- Architect guardrails (no crossing system boundaries)
+- QA Spec DoR (must be satisfied before starting)
+- No architectural redesign
+- No scope expansion without Mayor approval
+
+If scope grows → escalate immediately:
+```bash
+gt mail send {{crew_member}}/ -s "ESCALATION: scope grew on {{feature_name}}" -m "<what and why>"
+```
+"""
+
+[[steps]]
+id = "validation"
+title = "Test Runner validates with objective evidence"
+needs = ["implementation"]
+description = """
+Execute QA-defined tests. Evidence only — no interpretation, no fixes.
+
+Outputs:
+- PASS/FAIL report
+- Logs and traces
+- Reproduction steps if failed
+
+On failure:
+- Notify Mayor with full evidence
+- Do NOT attempt to fix
+
+```bash
+gt mail send {{crew_member}}/ -s "VALIDATION FAILED: {{feature_name}}" -m "<paste evidence>"
+```
+
+Failure returns convoy to implementation with evidence attached.
+"""
+
+[[steps]]
+id = "continuity"
+title = "Librarian records convoy outcomes"
+needs = ["validation"]
+description = """
+Preserve institutional memory across agent lifecycles.
+
+Outputs:
+- Release notes for {{feature_name}}
+- Summary of completed beads and commits
+- Change intent and impact
+- Verification instructions for humans
+- Known limitations or follow-up items
+"""

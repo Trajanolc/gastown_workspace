@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "rigs": {
+    "contract_checker": {
+      "git_url": "git@github.com:Trajanolc/simple_contract_checker.git",
+      "added_at": "2026-03-01T01:56:54.905450248-03:00",
+      "beads": {
+        "repo": "",
+        "prefix": "cc"
+      }
+    }
+  }
+}
